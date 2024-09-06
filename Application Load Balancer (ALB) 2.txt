@@ -1,0 +1,122 @@
+Voici la procédure pour configurer un Application Load Balancer (ALB) sur AWS avec un groupe de mise à l'échelle automatique (Auto Scaling) attaché à un groupe cible, où les instances EC2 écoutent sur le port 5000 pour une application Node.js avec Express, et l'ALB écoute sur le port 80.
+
+### Étape 1 : Créer un VPC et des Sous-Réseaux
+
+1. **Accéder à la console VPC** :
+   - Connectez-vous à votre compte AWS et allez à la console VPC.
+
+2. **Créer un VPC** :
+   - Cliquez sur "Create VPC".
+   - Donnez-lui un nom (par exemple, `my-vpc`).
+   - Définissez un bloc CIDR (par exemple, `10.0.0.0/16`).
+   - Cliquez sur "Create".
+
+3. **Créer des Sous-Réseaux** :
+   - **Sous-réseau public** :
+     - Créez un sous-réseau public (nommez-le `public-subnet` avec un bloc CIDR comme `10.0.1.0/24`).
+   - **Sous-réseau privé** :
+     - Créez un sous-réseau privé (nommez-le `private-subnet` avec un bloc CIDR comme `10.0.2.0/24`).
+
+4. **Configurer la Passerelle Internet et la Table de Routage** :
+   - Créez une passerelle Internet et attachez-la à votre VPC.
+   - Modifiez la table de routage pour le sous-réseau public afin d'ajouter une route vers la passerelle Internet.
+
+### Étape 2 : Lancer des Instances EC2 pour Node.js
+
+1. **Lancer des Instances EC2** :
+   - Lancez des instances EC2 (par exemple, Amazon Linux 2 ou Ubuntu) dans le sous-réseau privé.
+   - Assurez-vous que le groupe de sécurité autorise le trafic HTTP (port 5000) et SSH (port 22).
+
+2. **Installer Node.js et Express** :
+   - Connectez-vous à chaque instance EC2 via SSH.
+
+   ```bash
+   ssh -i "your-key.pem" ec2-user@<your-ec2-public-ip>
+   ```
+
+   Installez Node.js et npm :
+
+   ```bash
+   sudo yum update -y
+   curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
+   sudo yum install -y nodejs
+   ```
+
+   Installez Express :
+
+   ```bash
+   mkdir ~/app
+   cd ~/app
+   npm init -y
+   npm install express
+   ```
+
+3. **Créer l'Application Express** :
+   - Créez un fichier `app.js` dans le répertoire `~/app`.
+
+   ```javascript
+   const express = require('express');
+   const app = express();
+   const PORT = process.env.PORT || 5000;
+
+   app.get('/', (req, res) => {
+       res.send('Hello from Node.js on port 5000!');
+   });
+
+   app.listen(PORT, () => {
+       console.log(`Server is running on port ${PORT}`);
+   });
+   ```
+
+4. **Lancer l'Application** :
+   - Exécutez l'application sur chaque instance :
+
+   ```bash
+   node app.js
+   ```
+
+### Étape 3 : Créer un Application Load Balancer (ALB)
+
+1. **Accéder à la console EC2** :
+   - Dans la console EC2, cliquez sur "Load Balancers" puis "Create Load Balancer".
+
+2. **Créer un Application Load Balancer** :
+   - Sélectionnez "Application Load Balancer".
+   - Donnez un nom à votre ALB (par exemple, `my-alb`).
+   - Choisissez le schéma "Internet-facing".
+   - Sélectionnez le VPC que vous avez créé et le sous-réseau public.
+   - Configurez le groupe de sécurité pour autoriser le trafic HTTP (port 80).
+
+3. **Configurer les Listeners et les Règles** :
+   - Ajoutez un listener sur le port 80.
+   - Configurez le groupe cible à créer.
+
+### Étape 4 : Créer un Groupe Cible
+
+1. **Créer le Groupe Cible** :
+   - Dans la console EC2, cliquez sur "Target Groups" puis "Create target group".
+   - Choisissez "Instances" et donnez un nom (par exemple, `nodejs-target-group`).
+   - Sélectionnez le protocole `HTTP` et le port `5000`.
+   - Configurez la santé (health check) sur le chemin `/`.
+   - Cliquez sur "Create".
+
+### Étape 5 : Configurer l'Auto Scaling
+
+1. **Créer un Auto Scaling Group** :
+   - Accédez à "Auto Scaling Groups" dans la console EC2.
+   - Cliquez sur "Create Auto Scaling group".
+   - Sélectionnez le groupe cible `nodejs-target-group`.
+   - Configurez les paramètres (nombre minimum et maximum d'instances, par exemple, minimum 1, maximum 3).
+   - Configurez la stratégie de mise à l'échelle (par exemple, basée sur la charge CPU).
+
+### Étape 6 : Tester la Configuration
+
+1. **Récupérer l'URL de l'ALB** :
+   - Dans la console EC2, trouvez l'URL de votre ALB.
+
+2. **Tester l'Application** :
+   - Accédez à `http://<your-alb-dns-name>/` pour voir la réponse de votre application Node.js.
+
+### Résumé
+
+Vous avez mis en place un Application Load Balancer (ALB) sur AWS avec un groupe de mise à l'échelle automatique attaché à un groupe cible, où les instances EC2 exécutent une application Node.js sur le port 5000, tandis que l'ALB écoute sur le port 80. Cette configuration permet une mise à l'échelle dynamique de votre application en fonction du trafic.
